@@ -4,29 +4,144 @@ Phase 0 contains the project scaffold and a running hello-world flow for the
 FastAPI backend and React frontend. Business models, authentication, and
 feature workflows are intentionally deferred to later phases.
 
-## Setup
+## Run the site locally
 
-Prerequisites:
+The recommended setup uses Docker Compose. It starts MySQL, the FastAPI API,
+and the Vite frontend together, so teammates do not need to install Python
+packages or Node dependencies manually.
 
-- Docker Desktop (with Docker Compose)
+### Prerequisites
+
 - Git
-- Python 3.11+ and Node.js 22+ are useful for running checks outside Docker
+- Docker Desktop, including Docker Compose
+- A free local copy of ports `3306`, `8000`, and `5173`
 
-Copy the example environment file, then start all services:
+On macOS, Docker Desktop can be installed with Homebrew:
+
+```sh
+brew install --cask docker
+open -a Docker
+```
+
+Wait until Docker Desktop reports that the engine is running. Verify it before
+starting the project:
+
+```sh
+docker info
+docker compose version
+```
+
+### First-time setup
+
+Clone the repository and enter the project directory:
+
+```sh
+git clone https://github.com/Wasikul-Fahim/Volunteer_Management.git
+cd Volunteer_Management
+```
+
+Create the local environment file. This file is ignored by Git and must not be
+committed:
 
 ```sh
 cp .env.example .env
+```
+
+Start the complete local stack:
+
+```sh
 docker compose up --build
 ```
 
-The services are available at:
+The first build may take a few minutes. Leave this terminal running. Once the
+containers are ready, open:
 
-- Frontend: <http://localhost:5173>
-- API docs: <http://localhost:8000/docs>
-- Health endpoint: <http://localhost:8000/api/v1/health>
+| Service | URL |
+| --- | --- |
+| Website | <http://localhost:5173> |
+| API documentation | <http://localhost:8000/docs> |
+| API health check | <http://localhost:8000/api/v1/health> |
 
-The landing page calls the health endpoint and displays the API/database
-status. The database uses a named Docker volume with UTF-8 (`utf8mb4`) support.
+The landing page calls the API health endpoint and displays the backend and
+database status. A working response from the health endpoint is:
+
+```json
+{"status":"ok","db":"up"}
+```
+
+### Daily commands
+
+Run these from the project root:
+
+```sh
+# Start services in the foreground
+docker compose up
+
+# Start in the background
+docker compose up -d
+
+# Follow all service logs
+docker compose logs -f
+
+# Follow only backend logs
+docker compose logs -f backend
+
+# Show service status
+docker compose ps
+
+# Stop services (keeps the MySQL data volume)
+docker compose down
+```
+
+To rebuild after dependency or Dockerfile changes:
+
+```sh
+docker compose up --build
+```
+
+To remove the local database volume and start with a completely fresh database
+(use this only when you are comfortable deleting local data):
+
+```sh
+docker compose down -v
+docker compose up --build
+```
+
+### Troubleshooting
+
+- **Cannot connect to `docker.sock`:** start Docker Desktop, wait for the
+  engine to finish starting, then run `docker info` again.
+- **Port already in use:** stop the process using port `5173`, `8000`, or
+  `3306`, or change the host-side port mapping in `docker-compose.yml`.
+- **Frontend says the backend is unavailable:** check
+  `docker compose logs backend`, then confirm that
+  <http://localhost:8000/api/v1/health> responds.
+- **A stale container is running:** run `docker compose down`, then retry
+  `docker compose up --build`.
+
+### Running without Docker
+
+Docker is the preferred option because the intended database is MySQL. For a
+quick frontend/backend smoke test without Docker, use SQLite locally. In one
+terminal, from the project root:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements-dev.txt
+DB_URL=sqlite:///./phase0.db uvicorn app.main:app --app-dir backend --reload --port 8000
+```
+
+In a second terminal:
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+Then open <http://localhost:5173>. This fallback is only for the Phase 0
+scaffold; the Docker setup remains the standard team workflow.
 
 ## Checks and commands
 
@@ -42,7 +157,7 @@ make down             # stop containers
 
 ## Decisions and scope
 
-- The existing repository root is the `volunteer-ngo-platform` project root;
+- The repository root is the `Volunteer_Management` project root;
   the supplied `docs/PROJECT_SPEC.md` remains unchanged.
 - Tailwind follows the current Vite plugin installation: `tailwindcss`,
   `@tailwindcss/vite`, and `@import "tailwindcss"`.
