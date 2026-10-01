@@ -28,6 +28,7 @@ dist/
 
 # Local database data and logs
 mysql_data/
+*.db
 *.log
 
 # Test/build artifacts
