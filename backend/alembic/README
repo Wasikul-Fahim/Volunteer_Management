@@ -1,0 +1,1 @@
+Alembic migration scripts live in versions/. Phase 0 intentionally has no migrations because models are introduced in a later phase.
