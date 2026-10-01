@@ -4,135 +4,113 @@ Phase 0 contains the project scaffold and a running hello-world flow for the
 FastAPI backend and React frontend. Business models, authentication, and
 feature workflows are intentionally deferred to later phases.
 
-## Run the site locally
+## Run locally without Docker
 
-The recommended setup uses Docker Compose. It starts MySQL, the FastAPI API,
-and the Vite frontend together, so teammates do not need to install Python
-packages or Node dependencies manually.
+The easiest way for teammates to run the current Phase 0 site is **without
+Docker**. The backend uses SQLite for this local scaffold, and the frontend
+runs with Vite. Docker/MySQL remains available as an optional environment.
 
 ### Prerequisites
 
-- Git
-- Docker Desktop, including Docker Compose
-- A free local copy of ports `3306`, `8000`, and `5173`
+Install these tools first:
 
-On macOS, Docker Desktop can be installed with Homebrew:
+- Git: <https://git-scm.com/downloads>
+- Python 3.11 or newer: <https://www.python.org/downloads/windows/>
+- Node.js 22 LTS or newer: <https://nodejs.org/en/download>
 
-```sh
-brew install --cask docker
-open -a Docker
-```
+On Windows, during Python installation, enable **Add Python to PATH**.
 
-Wait until Docker Desktop reports that the engine is running. Verify it before
-starting the project:
+### Windows quick start
 
-```sh
-docker info
-docker compose version
-```
+Clone the repository in PowerShell:
 
-### First-time setup
-
-Clone the repository and enter the project directory:
-
-```sh
+```powershell
 git clone https://github.com/Wasikul-Fahim/Volunteer_Management.git
 cd Volunteer_Management
 ```
 
-Create the local environment file. This file is ignored by Git and must not be
-committed:
+If PowerShell blocks local scripts, allow scripts for the current PowerShell
+window only:
 
-```sh
-cp .env.example .env
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-Start the complete local stack:
+Run the one-time setup script. It creates `.env`, creates a Python virtual
+environment, installs backend dependencies, and installs frontend dependencies:
 
-```sh
-docker compose up --build
+```powershell
+.\scripts\setup-windows.ps1
 ```
 
-The first build may take a few minutes. Leave this terminal running. Once the
-containers are ready, open:
+Open **two PowerShell windows**, both in the project directory.
 
-| Service | URL |
-| --- | --- |
-| Website | <http://localhost:5173> |
-| API documentation | <http://localhost:8000/docs> |
-| API health check | <http://localhost:8000/api/v1/health> |
+**PowerShell window 1 — backend:**
 
-The landing page calls the API health endpoint and displays the backend and
-database status. A working response from the health endpoint is:
+```powershell
+.\scripts\run-backend-windows.ps1
+```
+
+**PowerShell window 2 — frontend:**
+
+```powershell
+.\scripts\run-frontend-windows.ps1
+```
+
+Open the website:
+
+- Website: <http://localhost:5173>
+- API documentation: <http://localhost:8000/docs>
+- API health check: <http://localhost:8000/api/v1/health>
+
+The landing page should display the backend status. The health endpoint should
+return:
 
 ```json
 {"status":"ok","db":"up"}
 ```
 
-### Daily commands
+Leave both terminals running while using the site. Press `Ctrl+C` in each
+terminal to stop the development servers.
 
-Run these from the project root:
+### Windows manual setup
 
-```sh
-# Start services in the foreground
-docker compose up
+If you prefer not to use the helper scripts, run these commands instead.
+From the project root, in PowerShell window 1:
 
-# Start in the background
-docker compose up -d
-
-# Follow all service logs
-docker compose logs -f
-
-# Follow only backend logs
-docker compose logs -f backend
-
-# Show service status
-docker compose ps
-
-# Stop services (keeps the MySQL data volume)
-docker compose down
+```powershell
+Copy-Item .env.example .env
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r backend\requirements-dev.txt
+$env:DB_URL = "sqlite:///./phase0.db"
+$env:CORS_ORIGINS = "http://localhost:5173"
+python -m uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
-To rebuild after dependency or Dockerfile changes:
+In PowerShell window 2:
 
-```sh
-docker compose up --build
+```powershell
+cd frontend
+npm install
+$env:VITE_API_URL = "http://localhost:8000"
+npm run dev
 ```
 
-To remove the local database volume and start with a completely fresh database
-(use this only when you are comfortable deleting local data):
+### macOS/Linux manual setup
+
+From the project root, in terminal 1:
 
 ```sh
-docker compose down -v
-docker compose up --build
-```
-
-### Troubleshooting
-
-- **Cannot connect to `docker.sock`:** start Docker Desktop, wait for the
-  engine to finish starting, then run `docker info` again.
-- **Port already in use:** stop the process using port `5173`, `8000`, or
-  `3306`, or change the host-side port mapping in `docker-compose.yml`.
-- **Frontend says the backend is unavailable:** check
-  `docker compose logs backend`, then confirm that
-  <http://localhost:8000/api/v1/health> responds.
-- **A stale container is running:** run `docker compose down`, then retry
-  `docker compose up --build`.
-
-### Running without Docker
-
-Docker is the preferred option because the intended database is MySQL. For a
-quick frontend/backend smoke test without Docker, use SQLite locally. In one
-terminal, from the project root:
-
-```sh
+cp .env.example .env
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements-dev.txt
-DB_URL=sqlite:///./phase0.db uvicorn app.main:app --app-dir backend --reload --port 8000
+DB_URL=sqlite:///./phase0.db CORS_ORIGINS=http://localhost:5173 \
+  python -m uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
-In a second terminal:
+In terminal 2:
 
 ```sh
 cd frontend
@@ -140,25 +118,93 @@ npm install
 npm run dev
 ```
 
-Then open <http://localhost:5173>. This fallback is only for the Phase 0
-scaffold; the Docker setup remains the standard team workflow.
+Then open <http://localhost:5173>.
+
+### Why SQLite is used here
+
+The Phase 0 health endpoint only needs a database connection, so SQLite keeps
+the local setup simple and removes the need for Docker or MySQL. The Docker
+Compose setup still uses MySQL and is the closer-to-production option. When
+database models are introduced in later phases, the team should use the
+project's agreed MySQL setup for development and integration testing.
+
+## Optional Docker setup
+
+Docker is not required for the current local site. If you already use Docker,
+the complete three-service stack can be started with:
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+The Docker services are:
+
+| Service | URL |
+| --- | --- |
+| Website | <http://localhost:5173> |
+| API documentation | <http://localhost:8000/docs> |
+| API health check | <http://localhost:8000/api/v1/health> |
+
+Useful Docker commands:
+
+```sh
+docker compose ps
+docker compose logs -f
+docker compose down
+```
+
+If Docker reports an error connecting to `docker.sock`, start Docker Desktop
+and wait until its engine is running. Docker is intentionally optional for the
+Phase 0 teammate workflow.
 
 ## Checks and commands
+
+On Windows, run these from the project root after running the setup script:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend\app\tests -q
+.\.venv\Scripts\python.exe -m ruff check backend\app
+```
+
+On macOS/Linux, activate `.venv` first and use:
 
 ```sh
 make backend-test     # pytest
 make lint             # Ruff
 make migrate          # Alembic upgrade head (no migrations in Phase 0)
 make seed             # placeholder until models exist
-make down             # stop containers
+make down             # stop Docker services
 ```
 
-`alembic current` can be run from `backend/` after the MySQL service is up.
+The equivalent backend test command is:
+
+```sh
+cd backend
+pytest
+```
+
+`alembic current` can be run from `backend/` when using the configured database.
+
+## Troubleshooting
+
+- **PowerShell says scripts are disabled:** run
+  `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`, then rerun the
+  script in that same window.
+- **`py` or `python` is not recognized:** reinstall Python and enable **Add
+  Python to PATH**, then open a new PowerShell window.
+- **`npm` is not recognized:** install Node.js 22 LTS, then open a new terminal.
+- **Frontend shows “Backend unavailable”:** make sure the backend terminal is
+  still running and check <http://localhost:8000/api/v1/health>.
+- **A port is already in use:** stop the process using port `8000` or `5173`,
+  or change the port in the corresponding startup command.
+- **Dependencies seem stale:** delete `frontend\node_modules` and `.venv`,
+  then run the setup script again.
 
 ## Decisions and scope
 
-- The repository root is the `Volunteer_Management` project root;
-  the supplied `docs/PROJECT_SPEC.md` remains unchanged.
+- The repository root is the `Volunteer_Management` project root; the supplied
+  `docs/PROJECT_SPEC.md` remains unchanged.
 - Tailwind follows the current Vite plugin installation: `tailwindcss`,
   `@tailwindcss/vite`, and `@import "tailwindcss"`.
 - Alembic is configured against `app.core.config.settings.db_url` and
